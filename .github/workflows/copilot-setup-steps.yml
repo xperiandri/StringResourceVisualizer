@@ -33,4 +33,4 @@ jobs:
         uses: microsoft/setup-msbuild@v3
 
       - name: Restore dependencies
-        run: msbuild StringResourceVisualizer.sln /v:m /t:Restore /p:Configuration=Debug
+        run: msbuild StringResourceVisualizer.slnx /v:m /t:Restore /p:Configuration=Debug

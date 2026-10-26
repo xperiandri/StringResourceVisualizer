@@ -4,13 +4,13 @@
 
 * String Resource Visualizer – a Visual Studio extension (VSIX) that shows the text of a string resource (`.resx`) above the line of C#, Visual Basic or Razor code that uses it; the features are described in #file:'README.md', the history in #file:'CHANGELOG.md'
 * Installs into Visual Studio 2022 from 17.10 up to, but not including, 18.0, on `amd64` and `arm64` (see #file:'src/source.extension.vsixmanifest'), so Visual Studio 2026 is not a target; .NET Framework 4.8.1; `LangVersion` is 12.0 (set in #file:'Directory.Build.props'). The Visual Studio range is written in several places that must change together: the two `InstallationTarget` elements of the manifest (one per architecture), its `CoreEditor` prerequisite, `MinimumVisualStudioVersion` (15.0) in the project file and the badges of the README, which still include one for Visual Studio 2019
-* The solution is #file:'StringResourceVisualizer.sln'. It has two old-style (non-SDK) projects: the extension #file:'src/StringResourceVisualizer.csproj' and its tests #file:'src/StringResourceVisualizer.Tests/StringResourceVisualizer.Tests.csproj'. Every `.cs`, content and resource file is listed in them by hand, so a new file is neither compiled nor packaged until it is added there. Package versions are `PackageReference` items in the same files – there is no central package management, and #file:'nuget.config' maps every package to nuget.org
+* The solution is #file:'StringResourceVisualizer.slnx', in the XML `.slnx` format. It needs the .NET SDK 9.0.200 or later, or the MSBuild of Visual Studio or Build Tools 17.13 or later (`dotnet sln` edits it). It has two old-style (non-SDK) projects: the extension #file:'src/StringResourceVisualizer.csproj' and its tests #file:'src/StringResourceVisualizer.Tests/StringResourceVisualizer.Tests.csproj'. Every `.cs`, content and resource file is listed in them by hand, so a new file is neither compiled nor packaged until it is added there. Package versions are `PackageReference` items in the same files – there is no central package management, and #file:'nuget.config' maps every package to nuget.org
 * Windows only: building needs Visual Studio with the "Visual Studio extension development" workload and the .NET Framework 4.8.1 targeting pack (without the pack the build fails with `MSB3644`). Use the MSBuild of Visual Studio; `dotnet build` does not build VSIX projects
 * Build from the repository root in PowerShell. `msbuild` is usually not on `PATH`, so find it with `vswhere` (add `-version '[17.0,18.0)'` to build with Visual Studio 2022 instead of the latest one; the CI runs on `windows-2022`, which has Visual Studio 2022); `DeployExtension=false` keeps the build from installing the extension into the Experimental instance:
 
   ```powershell
   $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
-  & $msbuild StringResourceVisualizer.sln -restore -p:Configuration=Debug -p:DeployExtension=false -v:m
+  & $msbuild StringResourceVisualizer.slnx -restore -p:Configuration=Debug -p:DeployExtension=false -v:m
   ```
 
 * Test: `src/StringResourceVisualizer.Tests` is an MSTest project with four tests of `ResourceAdornmentManager.FormatDisplayText`. Run it from Test Explorer, or after a build with the `vstest.console.exe` of Visual Studio:
@@ -57,7 +57,7 @@
 ├── Directory.Build.props                     – `LangVersion`
 ├── Directory.Build.targets                   – links `.claude/skills` to `.github/skills`
 ├── nuget.config
-└── StringResourceVisualizer.sln
+└── StringResourceVisualizer.slnx
 ```
 
 ### How It Works
