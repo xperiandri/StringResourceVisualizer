@@ -3,9 +3,9 @@
 ## Project Details
 
 * String Resource Visualizer – a Visual Studio extension (VSIX) that shows the text of a string resource (`.resx`) above the line of C#, Visual Basic or Razor code that uses it; the features are described in #file:'README.md', the history in #file:'CHANGELOG.md'
-* Installs into Visual Studio 2022 from 17.10 up to, but not including, 18.0, on `amd64` and `arm64` (see #file:'src/source.extension.vsixmanifest'), so Visual Studio 2026 is not a target; .NET Framework 4.8.1; `LangVersion` is 12.0 (set in #file:'Directory.Build.props'). The Visual Studio range is written in several places that must change together: the two `InstallationTarget` elements of the manifest (one per architecture), its `CoreEditor` prerequisite, `MinimumVisualStudioVersion` (15.0) in the project file and the badges of the README, which still include one for Visual Studio 2019
-* The solution is #file:'StringResourceVisualizer.slnx', in the XML `.slnx` format. It needs the .NET SDK 9.0.200 or later, or the MSBuild of Visual Studio or Build Tools 17.13 or later (`dotnet sln` edits it). It has two old-style (non-SDK) projects: the extension #file:'src/StringResourceVisualizer.csproj' and its tests #file:'src/StringResourceVisualizer.Tests/StringResourceVisualizer.Tests.csproj'. Every `.cs`, content and resource file is listed in them by hand, so a new file is neither compiled nor packaged until it is added there. Package versions are `PackageReference` items in the same files – there is no central package management, and #file:'nuget.config' maps every package to nuget.org
-* Windows only: building needs Visual Studio with the "Visual Studio extension development" workload and the .NET Framework 4.8.1 targeting pack (without the pack the build fails with `MSB3644`). Use the MSBuild of Visual Studio; `dotnet build` does not build VSIX projects
+* Installs into Visual Studio 2022 from 17.10 up to, but not including, 18.0, on `amd64` and `arm64` (see #file:'src/source.extension.vsixmanifest'), so Visual Studio 2026 is not a target; .NET Framework 4.8.1; `LangVersion` is 12.0 (set in #file:'Directory.Build.props'). The Visual Studio range is written in several places that must change together: the two `InstallationTarget` elements of the manifest (one per architecture), its `CoreEditor` prerequisite and the badges of the README, which still include one for Visual Studio 2019
+* The solution is #file:'StringResourceVisualizer.slnx', in the XML `.slnx` format. It needs the .NET SDK 9.0.200 or later, or the MSBuild of Visual Studio or Build Tools 17.13 or later (`dotnet sln` edits it). It has two SDK-style projects (`Microsoft.NET.Sdk`, `net481`): the extension #file:'src/StringResourceVisualizer.csproj' and its tests #file:'src/StringResourceVisualizer.Tests/StringResourceVisualizer.Tests.csproj'. Source files are included by globbing; the test project lies inside the folder of the extension project, so the extension project excludes it. `Microsoft.VSSDK.BuildTools` with `VSSDKBuildToolsAutoSetup` builds the VSIX, and a file that has to go into it needs a `Content` item with `IncludeInVSIX`. Package versions are `PackageReference` items in the same files – there is no central package management, and #file:'nuget.config' maps every package to nuget.org
+* Windows only: building needs Visual Studio with the "Visual Studio extension development" workload; the .NET Framework 4.8.1 reference assemblies come from the `Microsoft.NETFramework.ReferenceAssemblies` package, so the targeting pack is not needed. Use the MSBuild of Visual Studio (2022 17.14 and 2026 are verified)
 * Build from the repository root in PowerShell. `msbuild` is usually not on `PATH`, so find it with `vswhere` (add `-version '[17.0,18.0)'` to build with Visual Studio 2022 instead of the latest one; the CI runs on `windows-2022`, which has Visual Studio 2022); `DeployExtension=false` keeps the build from installing the extension into the Experimental instance:
 
   ```powershell
@@ -20,12 +20,12 @@
   & "$vs\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe" src\StringResourceVisualizer.Tests\bin\Debug\StringResourceVisualizer.Tests.dll
   ```
 
-  Everything else (package load, adornments, the options page) has no automated tests: run the extension in the Visual Studio Experimental instance (F5 starts `devenv.exe /rootsuffix Exp`, see the start options of the project) and open a solution that has a `.resx` file and code that uses it
+  Everything else (package load, adornments, the options page) has no automated tests: run the extension in the Visual Studio Experimental instance and open a solution that has a `.resx` file and code that uses it. F5 deploys the VSIX to the `Exp` instance because the solution marks the extension project with `<Deploy>`; Visual Studio supports that for an SDK-style VSIX project from 2026 18.5 on
 * CI: GitHub Actions (#file:'.github/workflows/build.yaml') builds the solution in `Debug` on `windows-2022` for pushes and pull requests to `main` (changes to root-level `.md` files only are ignored), runs the tests through `josepho0918/vstest-action` and uploads the VSIX as an artifact. A step stamps the run number into the version in the manifest and in `Vsix.Version` of `src/source.extension.cs`, so change versions by hand only for a deliberate release bump. The last steps publish a test badge to a gist of the original author; the upload runs on `main` only and needs a `GIST_TOKEN` secret that a fork does not have
 
 ## Solution Structure
 
-**IMPORTANT: Every new source file must be added to #file:'src/StringResourceVisualizer.csproj'** (or to the test project): `<Compile Include>` for code and `<Content Include>` with `IncludeInVSIX` for files that go into the VSIX. A file that is created outside Visual Studio is not added automatically.
+**IMPORTANT: A file that has to go into the VSIX must be a `<Content>` item with `IncludeInVSIX` in #file:'src/StringResourceVisualizer.csproj'.** Source files need no entry: the projects include them by globbing, and the extension project excludes the folder of the test project.
 
 ```text
 /
@@ -45,7 +45,7 @@
 │   ├── Messenger.cs                          – the event that asks for a reload of the resources
 │   ├── Constants.cs, StringExtensions.cs, TaskExtensions.cs – helpers (`LogAndForget` is in `TaskExtensions.cs`)
 │   ├── SponsorDetector.cs, SponsorRequestHelper.cs, AnalyticsConfig.cs – sponsorship message and telemetry settings of the original author (see below)
-│   ├── signvsix.targets, filestosign.txt     – signing of the release build; runs only when `SM_CERT_FP_SHA256` is set
+│   ├── signvsix.targets, filestosign.txt     – signing of the release build; runs only when `SM_CERT_FP_SHA256` is set. The target is called `SignAndCopyVsix` and runs after `Build`: named `AfterBuild` it would be replaced by the SDK targets and silently never run
 │   ├── GlobalSuppressions.cs, StringResourceVisualizer.ruleset, stylecop.json – code analysis settings
 │   ├── source.extension.vsixmanifest / .cs   – the manifest and the file generated from it
 │   ├── Properties/AssemblyInfo.cs            – assembly attributes; the version comes from the `Vsix` constants
@@ -92,6 +92,7 @@ The publisher identity in the manifest, the sponsorship message (`SponsorDetecto
 * `Microsoft.CodeAnalysis`, `Microsoft.CodeAnalysis.CSharp` and `Microsoft.VisualStudio.LanguageServices` 4.11.0 – the Roslyn workspace that `ConstFinder` reads
 * `Microsoft.ApplicationInsights` – the usage telemetry of the release build
 * `MessagePack`, `StreamJsonRpc`, `Microsoft.ServiceHub.Framework`, `Microsoft.IO.Redist` and several `System.*` packages – dependencies that the project pins explicitly
+* `Microsoft.VSSDK.BuildTools` (18.5.40034) – builds the VSIX of the SDK-style extension project (`VSSDKBuildToolsAutoSetup`)
 * `WarnAboutTODOs` – turns each `TODO` comment into a build warning
 * MSTest with `MSTest.Analyzers` (3.6.3) in the test project
 
