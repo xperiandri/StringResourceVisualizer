@@ -14,7 +14,7 @@ on:
 jobs:
   # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
   copilot-setup-steps:
-    # The extension is a VSIX, which builds only with the MSBuild of Visual Studio, so the agent needs Windows.
+    # The extension is a VSIX for .NET Framework 4.8.1, which is built on Windows, so the agent needs Windows.
     # The extension targets Visual Studio 2022 and its CI build runs on `windows-2022`; `windows-latest` currently has Visual Studio 2026.
     # The integrated firewall of the Copilot coding agent is not compatible with Windows, so the agent runs without it.
     runs-on: windows-2022
@@ -29,8 +29,5 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v3
-
       - name: Restore dependencies
-        run: msbuild StringResourceVisualizer.slnx /v:m /t:Restore /p:Configuration=Debug
+        run: dotnet restore StringResourceVisualizer.slnx
